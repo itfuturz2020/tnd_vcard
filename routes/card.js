@@ -15,6 +15,7 @@ const gallerymodel = require('../model/gallerymodel');
 const offerschema = require("../model/offermodel");
 const { Mongoose } = require('mongoose');
 const { exit } = require('process');
+var vCardsJS = require('vcards-js');
 
 var userimage = multer.diskStorage({
     destination: function (req, file, cb) {
@@ -30,7 +31,7 @@ var userimage = multer.diskStorage({
 
 var Userimg = multer({ storage: userimage });
 
-router.post("/signup",Userimg.single('imagecode'), async function(req,res,next){
+router.post("/checkDigitalCardMember",Userimg.single('imagecode'), async function(req,res,next){
     const { name, mobile, company_name,email,imagecode,referalcode,myreferalcode} = req.body;
     const file = req.file;
 
@@ -43,32 +44,38 @@ router.post("/signup",Userimg.single('imagecode'), async function(req,res,next){
 
     try{
         let isData = await usermodel.find({mobile : req.body.mobile});
-        f=[];
-        if(req.file){
-            var uniqaudio = "";
-            uniqaudio = moment().format('MMMM Do YYYY, h:mm:ss a');
-            var v = await cloudinary.uploader.upload(file.path,{ public_id: `vcard/user/${uniqaudio}`, tags: `user` },function(err,result) {
-                console.log("Error : ", err);
-                console.log("Resilt : ", result);
-                f[0] = result.url;
-            });
-        }
-        let addmember = await new usermodel({
-            name : name,
-            mobile : mobile,
-            company_name : company_name,
-            email : email,
-            imagecode : f[0],
-            referalcode : req.body.referalcode = undefined ? "" : req.body.referalcode,
-            myreferalcode : req.body.myreferalcode = undefined ? "" : req.body.myreferalcode,
-        });
-
-        if(addmember){
-            addmember.save();
-            res.status(200).json({ IsSucess:true, Data : addmember, Message : "New user Registered"});
+        if(isData.length == 1){
+            res.status(200).json({ IsSucess:true, Data : [isData], Message : "User logged in successfully"});
+            // res.status(200).json({IsSucess:true, Data:[], Message:"User Already register"});
         }
         else{
-            res.status(200).json({ IsSucess:true, Data : "", Message : "New user not Registered"});
+            f=[];
+            if(req.file){
+                var uniqaudio = "";
+                uniqaudio = moment().format('MMMM Do YYYY, h:mm:ss a');
+                var v = await cloudinary.uploader.upload(file.path,{ public_id: `vcard/user/${uniqaudio}`, tags: `user` },function(err,result) {
+                    console.log("Error : ", err);
+                    console.log("Resilt : ", result);
+                    f[0] = result.url;
+                });
+            }
+            let addmember = await new usermodel({
+                name : name,
+                mobile : mobile,
+                company_name : company_name,
+                email : email,
+                imagecode : f[0],
+                referalcode : req.body.referalcode = undefined ? "" : req.body.referalcode,
+                myreferalcode : req.body.myreferalcode = undefined ? "" : req.body.myreferalcode,
+            });
+
+            if(addmember){
+                addmember.save();
+                res.status(200).json({ IsSucess:true, Data : [addmember], Message : "New user Registered"});
+            }
+            else{
+                res.status(200).json({ IsSucess:true, Data : [], Message : "New user not Registered"});
+            }
         }
     }
     catch(error){
@@ -81,10 +88,10 @@ router.post("/login", async function(req,res,next){
     try {
         let isuser = await usermodel.find({mobile : mobile});
         if(isuser.length != 0){
-            res.status(200).json({ IsSucess:true, Data : isuser, Message : "User logged in successfully"});
+            res.status(200).json({ IsSucess:true, Data : [isuser], Message : "User logged in successfully"});
         }
         else{
-            res.status(200).json({ IsSucess:true, Data : "", Message : "Enter proper credentials"});
+            res.status(200).json({ IsSucess:true, Data : [], Message : "Enter proper credentials"});
         }
     } catch (error) {
         res.status(500).json({IsSucess : false, Message: error.message});
@@ -101,10 +108,10 @@ router.post("/addservice",async function(req,res,next){
         });
         if(newservice){
             newservice.save();
-            res.status(200).json({IsSucess : true, Data : newservice, Message: "New service added" });
+            res.status(200).json({IsSucess : true, Data : [newservice], Message: "New service added" });
         }
         else{
-            res.status(200).json({IsSucess : true, Data : "", Message: "Service not added" });
+            res.status(200).json({IsSucess : true, Data : [], Message: "Service not added" });
         }
     } catch (error) {
         res.status(500).json({IsSucess : false, Message : error.message });
@@ -160,10 +167,10 @@ router.post("/addimages", Userimg.fields([{name:'images'},{name:'videos'} ]), as
                 });
                 if(galleryupload){
                     galleryupload.save();
-                    res.status(200).json({IsSucess : true, Data : galleryupload, Message : "Uploaded successfully"});
+                    res.status(200).json({IsSucess : true, Data : [galleryupload], Message : "Uploaded successfully"});
                 }
                 else{
-                    res.status(200).json({IsSucess : true, Data : "", Message : "Not uploaded successfully"});
+                    res.status(200).json({IsSucess : true, Data : [], Message : "Not uploaded successfully"});
                 }
             }
         }
@@ -204,10 +211,10 @@ router.post("/getsingleuserdata", async function(req,res,next){
             },
         ]);
         if(isUser){
-            res.status(200).json({IsSucess:true, Data: isUser, Message:"User data found"});
+            res.status(200).json({IsSucess:true, Data: [isUser], Message:"User data found"});
         }
         else{
-            res.status(200).json({IsSucess:true, Data: "", Message:"User not found"});
+            res.status(200).json({IsSucess:true, Data: [], Message:"User not found"});
         }
     } catch (error) {
         res.status(500).json({IsSucess : false, Message : error.message });
@@ -291,10 +298,10 @@ router.post("/updateprofile", Userimg.fields([{name:'imagecode'},{name:'coverimg
                     let updateprofile = await usermodel.findByIdAndUpdate(isuser[0]._id,updateuser);
                     if(updateprofile){
                         // updateuser.save();
-                        res.status(200).json({IsSucess:true, Data : updateuser, Message:"User updated"});
+                        res.status(200).json({IsSucess:true, Data : [updateuser], Message:"User updated"});
                     }
                     else{
-                        res.status(200).json({IsSucess:true, Data : "", Message:"User not updated"});
+                        res.status(200).json({IsSucess:true, Data : [], Message:"User not updated"});
                     }
                 }
                 else{
@@ -319,10 +326,10 @@ router.post("/updateprofile", Userimg.fields([{name:'imagecode'},{name:'coverimg
                     let updateprofile = await usermodel.findByIdAndUpdate(isuser[0]._id, updateuser);
                     if(updateprofile){
                         // updateuser.save();
-                        res.status(200).json({IsSucess:true, Data : updateuser, Message:"User updated"});
+                        res.status(200).json({IsSucess:true, Data : [updateuser], Message:"User updated"});
                     }
                     else{
-                        res.status(200).json({IsSucess:true, Data : "", Message:"User not updated"});
+                        res.status(200).json({IsSucess:true, Data : [], Message:"User not updated"});
                     }
                 }
             }
@@ -365,13 +372,35 @@ router.post("/addoffer", Userimg.single('imagecode'), async function(req,res,nex
                 })
                 if(offerdata){
                     offerdata.save();
-                    res.status(200).json({IsSucess:true, Data:offerdata, Message:"Offer added"});
+                    res.status(200).json({IsSucess:true, Data: [offerdata], Message:"Offer added"});
                 }
                 else{
-                    res.status(200).json({IsSucess:true, Data:"", Message:"Offer not added"});
+                    res.status(200).json({IsSucess:true, Data: [], Message:"Offer not added"});
                 }
             }
         }
+    }
+    catch(error){
+        res.status(500).json({IsSucess : false, Message : error.message });
+    }
+});
+
+router.post("/savevcard" ,async function(req,res,next){
+    const {firstName,organization,workPhone,title,url,email} =req.body;
+    try{
+        var vCard = vCardsJS();
+
+        vCard.firstName = firstName;
+        vCard.organization = organization;
+        vCard.workPhone = workPhone;
+        vCard.title = title;
+        vCard.url = url;
+        vCard.email = email;
+
+        vCard.saveToFile('vcf/demo.vcf');
+        console.log(vCard.getFormattedString());
+        res.download('vcf/demo.vcf');
+        // res.status(200).json({IsSucess:true, Data; })
     }
     catch(error){
         res.status(500).json({IsSucess : false, Message : error.message });
